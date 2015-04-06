@@ -1,5 +1,6 @@
 from flask.ext.restful import reqparse, Resource, abort
 import common.persist
+from common.auth import auth
 
 users = common.persist.load_file('users')
 print users
@@ -11,6 +12,7 @@ post_parser.add_argument('name', type=str)
 post_parser.add_argument('password', type=str)
 
 class User(Resource):
+    method_decorators = [auth.login_required]
     def get(self, name = None):
         if name:
             if name in users:
@@ -29,3 +31,7 @@ class User(Resource):
         users[name] = args
         common.persist.to_file('users', users)
 
+    def delete(self, name):
+        if name in users:
+            del users[name]
+            common.persist.to_file('users', users)

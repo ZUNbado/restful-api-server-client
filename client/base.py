@@ -1,13 +1,16 @@
 import requests, argparse, sys, json
+from requests.auth import HTTPBasicAuth
 from prettytable import PrettyTable
+import config
+import logging
 
 class BaseObject(object):
     url = None
     path = None
     primary_key = None
     default_list_columns = None
-    invalid_attrs = [ 'url', 'path', 'primary_key', 'default_list_columns', 'invalid_attrs', 'invalid_methods' ]
-    invalid_methods = [ 'get_methods', 'get_columns', 'get_params', 'valid_attr', 'get', 'put', 'save', 'post', 'delete', 'get_primary', 'parser', 'cli_parser', 'list_parser', 'show_columns', 'print_table', 'set_default_list_columns', 'list', 'update', 'usage', 'fetch' ]
+    invalid_attrs = [ 'url', 'path', 'primary_key', 'default_list_columns', 'invalid_attrs', 'invalid_methods', 'fetch', 'new', 'update', 'list', 'delete' ]
+    invalid_methods = [ 'get_methods', 'get_columns', 'get_params', 'valid_attr', 'get', 'put', 'post', 'get_primary', 'parser', 'cli_parser', 'list_parser', 'show_columns', 'print_table', 'usage' ]
 
     def __init__(self, url, path = None, data = None):
         self.url = url
@@ -19,19 +22,18 @@ class BaseObject(object):
             print 'No primary key defined'
 
         if data:
-            self.update(data)
-        self.set_default_list_columns()
+            print data
+            self._update(data)
+        self._set_default_list_columns()
 
-    def update(self, data):
+    def _update(self, data):
         for (name, value) in data.items():
             if hasattr(self, name):
                 attr = getattr(self, name)
                 attr.set_value(value)
                 setattr(self, name, attr)
 
-
-
-    def set_default_list_columns(self):
+    def _set_default_list_columns(self):
         if not self.default_list_columns: 
             self.default_list_columns = [ self.get_primary() ]
 
@@ -40,7 +42,8 @@ class BaseObject(object):
         resource = self.__class__.__name__
         print '%s %s action' % (cmd, resource)
         print 'Available actions:'
-        print '\tlist\n\tsave'
+        for m in self.get_methods():
+            print '\t%s' % m
 
     def list_parser(self):
         list_args = [
@@ -85,7 +88,7 @@ class BaseObject(object):
         return vars(parser.parse_args([] if len(sys.argv) == 0 else sys.argv))
 
     def valid_attr(self, attr_name):
-        if attr_name not in self.invalid_attrs and attr_name not in self.invalid_methods and attr_name[:2] != '__': return True
+        if attr_name not in self.invalid_attrs and attr_name not in self.invalid_methods and attr_name[:2] != '__' and attr_name[:1] != '_': return True
         return False
 
     def get_primary(self):
@@ -133,7 +136,7 @@ class BaseObject(object):
     def get_methods(self):
         methods = []
         for c in dir(self):
-            if c not in self.invalid_methods and c[:2] != '__':
+            if c not in self.invalid_methods and c[:2] != '__' and c[:1] != '_':
                 if hasattr(getattr(self, c), '__call__'):
                     methods.append(c)
         return methods
@@ -163,9 +166,9 @@ class BaseObject(object):
 
     def get(self, id = None):
         if id:
-            r = requests.get('%s/%s/%s' % (self.url, self.path, id))
+            r = requests.get('%s/%s/%s' % (self.url, self.path, id), auth=(config.user, config.password))
         else:
-            r = requests.get('%s/%s' % (self.url, self.path))
+            r = requests.get('%s/%s' % (self.url, self.path), auth=(config.user, config.password))
         return r
 
     def fetch(self):
@@ -183,30 +186,36 @@ class BaseObject(object):
 
 
     def delete(self):
-        r = requests.delete('%s/%s/%s' % (self.url, self.path, getattr(self, self.primary_key)))
+        args = self.parser([{ 'args' : '-S' ,   'options' : { 'required' : True, 'dest' : self.primary_key } }])
+        print args
+        self._update(args)
+        r = requests.delete('%s/%s/%s' % (self.url, self.path, getattr(self, self.primary_key)), auth=(config.user, config.password))
 
     def post(self, args = None):
         if not args: args = self.cli_parser()
-        r = requests.post('%s/%s' % (self.url, self.path), data = args)
+        r = requests.post('%s/%s' % (self.url, self.path), data = args, auth=(config.user, config.password))
 
     def put(self, args = None):
         if not args: args = self.cli_parser('cli_edit')
-        self.update(args)
-        r = requests.put('%s/%s/%s' % (self.url, self.path, getattr(self, self.primary_key)), data = args)
+        self._update(args)
+        r = requests.put('%s/%s/%s' % (self.url, self.path, getattr(self, self.primary_key)), data = args, auth=(config.user, config.password))
 
-    def save(self):
+    def new(self):
         args = self.cli_parser()
-        self.update(args)
+        self._update(args)
         r = self.get(getattr(self, self.primary_key))
         if r.status_code == 404:
             self.post(args)
             print 'New user created'
         else:
-            self.put()
-            print 'Updated user'
+           print 'User already exists'
 
-
-
+    def update(self):
+        args = self.cli_parser('cli_edit')
+        self._update(args)
+        r = self.get(getattr(self, self.primary_key))
+        if r.status_code == 200:
+            self.put(args)
 
 class BaseAttribute(object):
     primary = False

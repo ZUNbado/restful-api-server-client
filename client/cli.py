@@ -2,6 +2,7 @@ import resources
 import pkgutil
 import config
 import sys
+import logging
 
 
 def load_resource(resource):
@@ -13,7 +14,15 @@ def load_resource(resource):
 
 
 def main():
-    #cmd = sys.argv.pop(0)
+    verbose = 50
+    for i in list(sys.argv):
+        if i[:2] == '-v':
+            verbose = verbose - ((len(i) - 1) * 10)
+            sys.argv.remove(i)
+
+    logging.basicConfig(format="%(levelname)s: %(message)s", level=verbose)
+
+
     resource = None
     method = None
     if len(sys.argv) > 1: resource = sys.argv.pop(1)
