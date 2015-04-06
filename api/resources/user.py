@@ -27,7 +27,6 @@ class User(Resource):
 
     def put(self, name):
         args = post_parser.parse_args()
-        print args
         users[name] = args
         common.persist.to_file('users', users)
 

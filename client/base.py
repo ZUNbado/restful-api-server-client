@@ -19,10 +19,9 @@ class BaseObject(object):
         if primary:
             self.primary_key = primary
         else:
-            print 'No primary key defined'
+            logging.warning('No primary key defined')
 
         if data:
-            print data
             self._update(data)
         self._set_default_list_columns()
 
@@ -35,6 +34,7 @@ class BaseObject(object):
 
     def _set_default_list_columns(self):
         if not self.default_list_columns: 
+            logging.debug('Setting default list columns to primary key')
             self.default_list_columns = [ self.get_primary() ]
 
     def usage(self):
@@ -206,9 +206,9 @@ class BaseObject(object):
         r = self.get(getattr(self, self.primary_key))
         if r.status_code == 404:
             self.post(args)
-            print 'New user created'
+            logging.info('New user created')
         else:
-           print 'User already exists'
+            logging.info('User already exists')
 
     def update(self):
         args = self.cli_parser('cli_edit')
@@ -216,6 +216,8 @@ class BaseObject(object):
         r = self.get(getattr(self, self.primary_key))
         if r.status_code == 200:
             self.put(args)
+        else:
+            logging.critical('Object does not exists')
 
 class BaseAttribute(object):
     primary = False
