@@ -74,7 +74,7 @@ def ResourceOptions(cls):
                 doc = parsedoc(getattr(self, method.lower()))
                 link = { 'method' : method, 'url' : url_for(self.endpoint, **kwargs ) }
                 if doc and 'Arguments' in doc:
-                    link['Documentation'] = doc
+                    link.update(doc)
                 else:
                     link['Arguments' ] = args
                 links.append(link)
